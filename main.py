@@ -1,7 +1,6 @@
 import asyncio
 import logging
 import os
-import sys
 from datetime import datetime
 from pathlib import Path
 
@@ -12,8 +11,8 @@ import progressbar
 # flush to work with logging
 progressbar.streams.wrap_stderr()
 
-green = "\x1b[32;20m"
-reset = "\x1b[0m"
+GREEN = "\x1b[32;20m"
+RESET = "\x1b[0m"
 
 logging.basicConfig(
     format="%(asctime)s %(levelname)s:%(name)s: %(message)s",
@@ -23,12 +22,12 @@ logging.basicConfig(
 
 load_dotenv()
 TOKEN = os.getenv('TOKEN')
-v = '5.131'
-endpoint = "https://api.vk.com/method/"
+V = '5.131'
+ENDPOINT = "https://api.vk.com/method/"
 
 async def vk_api_call(session, method, method_name, **kwargs):
-    params= {'access_token': TOKEN, 'v':v, **kwargs}
-    url = f"{endpoint}{method_name}"
+    params= {'access_token': TOKEN, 'v':V, **kwargs}
+    url = f"{ENDPOINT}{method_name}"
     resp = await session.request(method=method, url=url, params=params)
     resp.raise_for_status()
     logging.info("Got response [%s] for URL: %s", resp.status, url)
@@ -36,8 +35,8 @@ async def vk_api_call(session, method, method_name, **kwargs):
     return json['response']
 
 
-def timestamp_to_name(ts):
-    dt_object = datetime.fromtimestamp(ts)
+def timestamp_to_name(unix_ts):
+    dt_object = datetime.fromtimestamp(unix_ts)
     return dt_object.strftime(r"%Y%m%d-%H%M%S")
 
 async def fetch_content_stream(url: str, session, **kwargs) -> str:
@@ -51,7 +50,7 @@ async def fetch_content_stream(url: str, session, **kwargs) -> str:
     stream = resp.content
     return stream
 
-async def downloadImage(session, url, name, path, **kwargs):
+async def download_image(session, url, name, path, **kwargs):
     fullpath = os.path.join(path, name)
     if os.path.exists(fullpath):
         logging.info("Image [%s] already exists", name)
@@ -63,19 +62,19 @@ async def downloadImage(session, url, name, path, **kwargs):
     except (
         aiohttp.ClientError,
         aiohttp.http_exceptions.HttpProcessingError,
-    ) as e:
-        logloggerging.error(
+        aiohttp.client_exceptions.ClientPayloadError,
+    ) as err:
+        logging.error(
             "aiohttp exception for %s [%s]: %s",
             url,
-            getattr(e, "status", None),
-            getattr(e, "message", None),
+            getattr(err, "status", None),
+            getattr(err, "message", None),
         )
         return
-    
-    async with aiofiles.open(fullpath, mode='wb') as f:
-        async for line in content_stream.iter_chunked(1024):
-            await f.write(line)
 
+    async with aiofiles.open(fullpath, mode='wb') as f:
+        async for block in content_stream.iter_any():
+            await f.write(block)
 
 async def download_post(session, post, path, **kwargs):
     tasks = []
@@ -85,8 +84,8 @@ async def download_post(session, post, path, **kwargs):
 
         url = attach['photo']['sizes'][-1]['url']
         name = f"{timestamp_to_name(int(post['date']))}-{ind:02}.jpg"
-        tasks.append(downloadImage(session, url, name, path, **kwargs))
-    
+        tasks.append(download_image(session, url, name, path, **kwargs))
+
     await asyncio.gather(*tasks)
 
 def download_fave(session, path, **kwargs):
@@ -95,19 +94,64 @@ def download_fave(session, path, **kwargs):
 def download_wall(session, path, domain, **kwargs):
     return _download_posts(session, path, 'wall', domain=domain, **kwargs)
 
-async def _download_posts(session, path, type='fave', step = 50, **kwargs):
+async def download_chat(session, path, peer_id, **kwargs):
+    method_name = "messages.getHistoryAttachments"
+    bar = None
+    old_peer = peer_id
+    # case of chat room
+    if peer_id[0] == 'c':
+        peer_id = int(peer_id[1:]) + 2000000000
+    else:
+        peer_id = int(peer_id)
+
+    start_from=""
+    total = 0
+    while True:
+        res = await vk_api_call(session, "GET", method_name, peer_id=peer_id,
+            start_from=start_from, media_type='photo', count=50, **kwargs)
+
+        start_from = res['next_from']
+        current = int(start_from.split('/')[0])
+
+        photo_objs = (item['attachment']['photo'] for item in res['items'])
+
+        if not start_from or not photo_objs:
+            bar.finish()
+            break
+
+        if not bar:
+            total = int(start_from.split('/')[0])
+            widgets=[
+                f"[@{old_peer}] ",
+                progressbar.Counter(format='| msg %(value)d of %(max_value)d | '),
+                progressbar.Percentage(), ' ',
+                progressbar.Bar(),
+            ]
+            bar = progressbar.ProgressBar(widgets=widgets,max_value=total).start()
+
+        tasks = []
+        for photo in photo_objs:
+            url = photo['sizes'][-1]['url']
+            id_ = photo['id']
+            name = timestamp_to_name(photo['date']) + f"-{id_}.jpg"
+            tasks.append(download_image(session, url, name, path))
+
+        await asyncio.gather(*tasks)
+        bar.update(total - current)
+
+
+async def _download_posts(session, path, type_='fave', step = 50, **kwargs):
     offset = 0
-    method_name = "fave.getPosts" if type == 'fave' else "wall.get"
+    method_name = "fave.getPosts" if type_ == 'fave' else "wall.get"
     bar = None
     while True:
-        logging.info(f"{green}Loading {step} posts with offset {offset}{reset}")
         res = await vk_api_call(session, "GET", method_name, offset=offset, count=step, **kwargs)
 
-        # progressbar shows percentage of all posts
         if not bar:
             widgets=[
-                f"[{'#fave' if type == 'fave' else kwargs.get('domain')}] ",
-                progressbar.Counter(format='%(value)02d/%(max_value)d'),
+                f"[{'#fave' if type_ == 'fave' else kwargs.get('domain')}] ",
+                progressbar.Counter(format='| post %(value)d of %(max_value)d | '),
+                progressbar.Percentage(),  ' ',
                 progressbar.Bar(),
             ]
             bar = progressbar.ProgressBar(widgets=widgets, max_value=res['count']).start()
@@ -128,24 +172,32 @@ async def main(path, **kwargs):
     path_obj.mkdir(parents=True, exist_ok=True)
     async with aiohttp.ClientSession() as session:
         if kwargs['fave']:
-            child_path = path_obj / '#fave'
+            child_path = path_obj / 'faves'
             child_path.mkdir(parents=True, exist_ok=True)
-            await download_fave(session, str(child_path), **kwargs)
-        
+            await download_fave(session, str(child_path))
+
         for domain in kwargs.get('wall', []):
-            child_path = path_obj / domain
+            child_path = path_obj / 'walls' / domain
             child_path.mkdir(parents=True, exist_ok=True)
-            await download_wall(session, str(child_path), domain, **kwargs)
-        
-                
+            await download_wall(session, str(child_path), domain)
+
+        for peer_id in kwargs.get('chat', []):
+            child_path = path_obj / 'chats' / peer_id
+            child_path.mkdir(parents=True, exist_ok=True)
+            await download_chat(session, str(child_path), peer_id)
+
+
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument("-p", "--path", default='./data', help="Path to save images to")
-    parser.add_argument('--wall', nargs='+', help='Domain(s) of users/groups to download from', 
-        default=[], metavar=["userId1", "groupId2"])
+    parser.add_argument('--wall', nargs='+', help='Domain(s) of users/groups to download from',
+        default=[], metavar=("user_id", "group_id"))
 
-    parser.add_argument('--fave', help='If set, download images from liked posts (bookmarks)', 
+    parser.add_argument('--chat', nargs='+', help='Chat peer_id\'s to download from',
+        default=[], metavar=("c42",  "-42069"))
+
+    parser.add_argument('--fave', help='If set, download images from liked posts (bookmarks)',
         default=False, action='store_true')
 
     ns = parser.parse_args()
