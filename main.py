@@ -19,7 +19,6 @@ logging.basicConfig(
     format="%(asctime)s %(levelname)s:%(name)s: %(message)s",
     level=logging.INFO,
     datefmt="%H:%M:%S",
-    # stream=sys.stderr,
 )
 
 load_dotenv()
@@ -101,7 +100,7 @@ async def _download_posts(session, path, type='fave', step = 50, **kwargs):
     method_name = "fave.getPosts" if type == 'fave' else "wall.get"
     bar = None
     while True:
-        logging.info(f"{green}Loading 50 posts with offset {offset}{reset}")
+        logging.info(f"{green}Loading {step} posts with offset {offset}{reset}")
         res = await vk_api_call(session, "GET", method_name, offset=offset, count=step, **kwargs)
 
         # progressbar shows percentage of all posts
@@ -143,7 +142,11 @@ if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument("-p", "--path", default='./data', help="Path to save images to")
-    parser.add_argument('--wall', nargs='+', help='Domain(s) of users/groups to download from', default=['haalonean'])
-    parser.add_argument('--fave', help='If set, download images from liked posts (bookmarks)', default=False, action='store_true')
+    parser.add_argument('--wall', nargs='+', help='Domain(s) of users/groups to download from', 
+        default=[], metavar=["userId1", "groupId2"])
+
+    parser.add_argument('--fave', help='If set, download images from liked posts (bookmarks)', 
+        default=False, action='store_true')
+
     ns = parser.parse_args()
     asyncio.run(main(**ns.__dict__))
