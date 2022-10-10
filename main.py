@@ -13,10 +13,10 @@ async def main(path, count, **kwargs):
             loader = FaveLoader(session, str(child_path), count=count)
             await loader.run()
 
-        for domain in kwargs.get('wall', []):
-            child_path = path_obj / 'walls' / domain
+        for wall_id in kwargs.get('wall', []):
+            child_path = path_obj / 'walls' / wall_id
             child_path.mkdir(parents=True, exist_ok=True)
-            loader = WallLoader(session, str(child_path), domain, count=count)
+            loader = WallLoader(session, str(child_path), wall_id, count=count)
             await loader.run()
 
         for peer_id in kwargs.get('chat', []):
