@@ -3,7 +3,7 @@ import progressbar
 
 
 class ChatLoader(BaseLoader):
-    def __init__(self, session, path, peer_id=""):
+    def __init__(self, session, path, peer_id="", count=50):
         super().__init__(session, path)
         self.old_peer = peer_id
 
@@ -13,14 +13,14 @@ class ChatLoader(BaseLoader):
         else:
             peer_id = int(peer_id)
         self.peer_id = peer_id
-        self.step = 50
+        self.count = count
         self.start_from = ""
         self.current = 0
 
     async def _request_items(self):
         method_name = "messages.getHistoryAttachments"
         return await vk_api_call(self.session, "GET", method_name, 
-            media_type='photo', start_from=self.start_from, count=self.step, peer_id=self.peer_id)
+            media_type='photo', start_from=self.start_from, count=self.count, peer_id=self.peer_id)
 
     def _update_on_response(self, response):
         self.start_from = response.get('next_from')

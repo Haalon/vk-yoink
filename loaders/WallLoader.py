@@ -2,18 +2,18 @@ from .BaseLoader import BaseLoader, vk_api_call, timestamp_to_name
 import progressbar
 
 class WallLoader(BaseLoader):
-    def __init__(self, session, path, domain=""):
+    def __init__(self, session, path, domain="", count=50):
         super().__init__(session, path)
         self.domain = domain
-        self.step = 50
+        self.count = count
         self.offset = 0
 
     async def _request_items(self):
         method_name = "wall.get"
-        return await vk_api_call(self.session, "GET", method_name, offset=self.offset, count=self.step, domain=self.domain)
+        return await vk_api_call(self.session, "GET", method_name, offset=self.offset, count=self.count, domain=self.domain)
 
     def _update_on_response(self, response):
-        self.offset += self.step
+        self.offset += self.count
 
     def _item_to_tasks(self, item):
         post = item
