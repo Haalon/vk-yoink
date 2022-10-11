@@ -45,7 +45,7 @@ async def vk_api_call(session, method, method_name, **kwargs):
     resp.raise_for_status()
     logger.info("Got response [{}] for URL: {}", resp.status, url)
     json = await resp.json()
-    return json['response']
+    return json
 
 
 class BaseLoader(ABC):
@@ -84,6 +84,12 @@ class BaseLoader(ABC):
         bar = None
         while not BaseLoader.SHUTDOWN_FLAG:
             response = await self._request_items()
+            err = response.get('error')
+            if err:
+                logger.critical(err['error_msg'])
+                break
+            
+            response = response['response']
             self._update_on_response(response)
 
 
