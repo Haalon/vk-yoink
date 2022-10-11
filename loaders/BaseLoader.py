@@ -54,6 +54,7 @@ class BaseLoader(ABC):
     def __init__(self, session, path):
         self.session = session
         self.path = path
+        self.logger = logger
 
     @abstractmethod
     async def _request_items(self):
@@ -83,12 +84,23 @@ class BaseLoader(ABC):
         # init loop
         bar = None
         while not BaseLoader.SHUTDOWN_FLAG:
-            response = await self._request_items()
+            try:
+                response = await self._request_items()
+            except (
+                aiohttp.ClientError,
+                aiohttp.http_exceptions.HttpProcessingError,
+                aiohttp.client_exceptions.ClientPayloadError,
+            ) as err:
+                logger.error(str(err))
+                break
+
+            # vk api may return error
+            # for example if try to request posts from blocked group
             err = response.get('error')
             if err:
                 logger.critical(err['error_msg'])
                 break
-            
+
             response = response['response']
             self._update_on_response(response)
 
@@ -130,17 +142,14 @@ class BaseLoader(ABC):
             aiohttp.http_exceptions.HttpProcessingError,
             aiohttp.client_exceptions.ClientPayloadError,
         ) as err:
-            logger.error(
-                "aiohttp exception for {} [{}]: {}",
-                url,
-                getattr(err, "status", None),
-                getattr(err, "message", None),
-            )
+            logger.error(str(err))
             return
 
         async with aiofiles.open(fullpath, mode='wb') as f:
             async for block in content_stream.iter_any():
                 await f.write(block)
+
+        logger.success("Image [{}] downloaded", name)
 
 # register SIGINT listener to shutdown loop gracefully
 def signal_handler(signal, frame):
