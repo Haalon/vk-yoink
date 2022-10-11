@@ -33,12 +33,19 @@ class WallLoader(BaseLoader):
     def _item_to_tasks(self, item):
         post = item
         tasks = []
+
+        repost = post.get('copy_history')
+        if repost:
+            tasks = self._item_to_tasks(repost[0])
+
+        # shift names in case there are images in repost
+        shift = len(tasks)        
         for ind, attach in enumerate(post.get('attachments', {})):
             if attach['type'] != 'photo':
                 continue
 
             url = attach['photo']['sizes'][-1]['url']
-            name = f"{timestamp_to_name(int(post['date']))}-{ind:02}.jpg"
+            name = f"{timestamp_to_name(int(post['date']))}-{shift+ind:02}.jpg"
             tasks.append(self.download_image(url, name))
 
         return tasks
