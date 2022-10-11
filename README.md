@@ -37,3 +37,7 @@ Flag 	| Desciption
 `--chat`	| List of chat identificators to download from. For example `--chat c1 12312 -1 c5`
 `--path`  | Specify path to download images to. By default downloads to `./data` folder 
 `--count` | Specify batch size - how many images to request from vk, and consequently, how many images to download at once
+
+### Example usage
+
+```python main.py --wall haalonean --fave --chat c50 c51```
