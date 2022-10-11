@@ -15,7 +15,7 @@ from loguru import logger
 progressbar.streams.wrap_stderr()
 
 logger.remove() 
-logger.add(sys.stderr, format="<level>{time} | {level} | {message}</level>", colorize=True, level="INFO")
+logger.add(sys.stderr, format="<level>{time} | {level: ^8} | {message}</level>", colorize=True, level="INFO")
 
 
 load_dotenv()
