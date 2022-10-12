@@ -32,11 +32,13 @@ Run `python main.py`, specifying where to donload from with parameters below
 
 Flag 	| Desciption
 ---------------------------|------------
-`--fave`	| If set, images will be downloaded from current user bookmarks
-`--wall`	| List of wall identificators to download from. For example `--wall id0 club420 fenekc`
-`--chat`	| List of chat identificators to download from. For example `--chat c1 12312 -1 c5`
-`--path`  | Specify path to download images to. By default downloads to `./data` folder 
-`--count` | Specify batch size - how many images to request from vk, and consequently, how many images to download at once
+`--fave`	    | If set, images will be downloaded from current user bookmarks
+`--wall`	    | List of wall identificators to download from. For example `--wall id0 club420 fenekc`
+`--chat`	    | List of chat identificators to download from. For example `--chat c1 12312 -1 c5`
+`--path`        | Specify path to download images to. By default downloads to `./data` folder 
+`--offset`      | Specify posts to start from while downloading from walls. `--offset 100 0 500` means that first wall will start from post #100, second from the start and the third one from #500.
+`--start-from`  | Specify messages to start from while downloading from chats. For example `--start-from 1753228/1`. You can see current message next to a progress bar
+`--count`       | Specify batch size - how many images to request from vk, and consequently, how many images to download at once
 
 ### Example usage
 

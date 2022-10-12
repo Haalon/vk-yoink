@@ -13,16 +13,22 @@ async def main(path, count, **kwargs):
             loader = FaveLoader(session, str(child_path), count=count)
             await loader.run()
 
-        for wall_id in kwargs.get('wall', []):
+        for ind, wall_id in enumerate(kwargs.get('wall', [])):
+            offsets = kwargs.get('offset', [])
+            offset = int(offsets[ind]) if ind < len(offsets)  else 0
+
             child_path = path_obj / 'walls' / wall_id
             child_path.mkdir(parents=True, exist_ok=True)
-            loader = WallLoader(session, str(child_path), wall_id, count=count)
+            loader = WallLoader(session, str(child_path), wall_id, count=count, offset=offset)
             await loader.run()
 
-        for peer_id in kwargs.get('chat', []):
+        for ind, peer_id in enumerate(kwargs.get('chat', [])):
+            starts = kwargs.get('start_from', [])
+            start_from = starts[ind] if ind < len(starts) else ""
+
             child_path = path_obj / 'chats' / peer_id
             child_path.mkdir(parents=True, exist_ok=True)
-            loader = ChatLoader(session, str(child_path), peer_id, count=count)
+            loader = ChatLoader(session, str(child_path), peer_id, count=count, start_from=start_from)
             await loader.run()
 
 
@@ -38,6 +44,14 @@ if __name__ == "__main__":
 
     parser.add_argument('--fave', help='If set, download images from liked posts (bookmarks)',
         default=False, action='store_true')
+
+    parser.add_argument('--offset', nargs='+', help='Specify offsets for walls - from what post to start loading. \
+        In case of many walls, offsets can be specified in order of appearances',
+        default=[], metavar=("0",  "150"))
+
+    parser.add_argument('--start-from', nargs='+', help='Specify starts for chats - from what message to start loading. \
+        In case of many chats, starts can be specified in order of appearances',
+        default=[], metavar=("1753228/1",  "1239741/2"))
 
     parser.add_argument('-c', '--count', type=int, help='Amount of images to request from vk per api call', default=50)
 

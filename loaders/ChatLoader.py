@@ -3,7 +3,7 @@ import progressbar
 
 
 class ChatLoader(BaseLoader):
-    def __init__(self, session, path, peer_id="", count=50):
+    def __init__(self, session, path, peer_id="", count=50, start_from=""):
         super().__init__(session, path)
         self.old_peer = peer_id
 
@@ -14,8 +14,7 @@ class ChatLoader(BaseLoader):
             peer_id = int(peer_id)
         self.peer_id = peer_id
         self.count = count
-        self.start_from = ""
-        self.current = 0
+        self.start_from = start_from
 
     async def _request_items(self):
         method_name = "messages.getHistoryAttachments"
@@ -39,22 +38,17 @@ class ChatLoader(BaseLoader):
         return tasks
 
     def _get_bar(self, response):
-        if not self.start_from:
-            return progressbar.ProgressBar()
-
-        total = int(self.start_from.split('/')[0])
         widgets=[
             f"[@{self.old_peer}] ",
-            progressbar.Counter(format='| msg %(value)d of %(max_value)d | '),
-            progressbar.Percentage(), ' ',
-            progressbar.Bar(),
+            "| ",  progressbar.Variable('start_from'), " ",
+            progressbar.BouncingBar(),
         ]
-        bar = progressbar.ProgressBar(widgets=widgets,max_value=total)
+        bar = progressbar.ProgressBar(widgets=widgets)
         
         return bar
 
     def _update_bar(self, bar):
-        bar.update(min(bar.max_value))
+        bar.update(0, force=True, start_from=self.start_from)
 
     def _is_finish(self, response):
         return not self.start_from

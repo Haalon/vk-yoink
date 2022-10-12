@@ -102,12 +102,13 @@ class BaseLoader(ABC):
                 break
 
             response = response['response']
-            self._update_on_response(response)
-
 
             if not bar:
                 bar = self._get_bar(response)
                 bar.start()
+                self._update_bar(bar)
+
+            self._update_on_response(response)
 
             tasks = [task for item in response['items'] for task in self._item_to_tasks(item)]
 

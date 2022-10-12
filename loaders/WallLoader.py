@@ -2,7 +2,7 @@ from .BaseLoader import BaseLoader, vk_api_call, timestamp_to_name
 import progressbar
 
 class WallLoader(BaseLoader):
-    def __init__(self, session, path, wall_id="", count=50):
+    def __init__(self, session, path, wall_id="", count=50, offset=0):
         super().__init__(session, path)
         self.bar_name = wall_id
         self.use_owner_id = False
@@ -16,7 +16,7 @@ class WallLoader(BaseLoader):
 
         self.wall_id = wall_id
         self.count = count
-        self.offset = 0
+        self.offset = offset
 
     async def _request_items(self):
         method_name = "wall.get"
