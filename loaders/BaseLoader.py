@@ -16,6 +16,7 @@ progressbar.streams.wrap_stderr()
 
 logger.remove() 
 logger.add(sys.stderr, format="<level>{time} | {level: ^8} | {message}</level>", colorize=True, level="INFO")
+logger.add("./err.log", format="<level>{time} | {level: ^8} | {message}</level>", colorize=False, level="ERROR")
 
 
 load_dotenv()
