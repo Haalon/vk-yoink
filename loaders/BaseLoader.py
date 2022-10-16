@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from typing import Any, Awaitable
 import asyncio
 import os
 import signal
@@ -24,11 +25,11 @@ TOKEN = os.getenv('TOKEN')
 V = '5.131'
 ENDPOINT = "https://api.vk.com/method/"
 
-def timestamp_to_name(unix_ts):
+def timestamp_to_name(unix_ts: str) -> str:
     dt_object = datetime.fromtimestamp(unix_ts)
     return dt_object.strftime(r"%Y%m%d-%H%M%S")
 
-async def fetch_content_stream(url: str, session, **kwargs) -> str:
+async def fetch_content_stream(url: str, session: aiohttp.ClientSession, **kwargs) -> aiohttp.StreamReader:
     """GET request wrapper to fetch content stream.
 
     kwargs are passed to `session.request()`.
@@ -39,7 +40,7 @@ async def fetch_content_stream(url: str, session, **kwargs) -> str:
     stream = resp.content
     return stream
 
-async def vk_api_call(session, method, method_name, **kwargs):
+async def vk_api_call(session: aiohttp.ClientSession, method: str, method_name: str, **kwargs) -> Any:
     params= {'access_token': TOKEN, 'v':V, **kwargs}
     url = f"{ENDPOINT}{method_name}"
     resp = await session.request(method=method, url=url, params=params)
@@ -52,36 +53,47 @@ async def vk_api_call(session, method, method_name, **kwargs):
 class BaseLoader(ABC):
     SHUTDOWN_FLAG = False
 
-    def __init__(self, session, path):
+    def __init__(self, session: aiohttp.ClientSession, path: str):
         self.session = session
         self.path = path
         self.logger = logger
 
     @abstractmethod
-    async def _request_items(self):
-        pass
+    async def _request_items(self) -> Any:
+        """
+        Request items to download
+
+        Usually posts or photoes
+
+        """
 
     @abstractmethod
     def _update_on_response(self, response):
-        pass
+        """
+        Update instance props, so the next call to _request_items
+        will request next set of items
+        """
 
     @abstractmethod
-    def _get_bar(self, response):
-        pass
+    def _get_bar(self, response) -> progressbar.ProgressBar:
+        """Create progressbar based on an initial response from _request_items"""
 
     @abstractmethod
     def _update_bar(self, bar):
-        pass
+        """Update bar on each iteration"""
 
     @abstractmethod
-    def _item_to_tasks(self, item):
-        pass
+    def _item_to_tasks(self, item: Any) -> [Awaitable]:
+        """
+        Map items, returned from _request_items, to coroutine tasks
+        """
 
     @abstractmethod
-    def _is_finish(self, response):
-        pass
+    def _is_finish(self, response) -> bool:
+        """Check if there is nothing left to download"""
 
     async def run(self):
+        """Run the loading loop, until everything is downloaded or until an error"""
         # init loop
         bar = None
         while not BaseLoader.SHUTDOWN_FLAG:
@@ -128,7 +140,10 @@ class BaseLoader(ABC):
                 bar.finish()
                 break
 
-    async def download_image(self, url, name):
+    async def download_image(self, url: str, name: str):
+        """
+        Download image from given url and save it to the loader's path with a given name
+        """
         path = self.path
         session = self.session
         fullpath = os.path.join(path, name)
